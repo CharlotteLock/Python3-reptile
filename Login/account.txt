@@ -1,1 +1,1 @@
-renren  http://www.renren.com/home  账户名 密码  http://icode.renren.com/getcode.do?t=web_login&rnd=Math.random()
+renren  http://www.renren.com/home  账户名 密码
