@@ -3,18 +3,19 @@ import urllib.parse
 import http.cookiejar
 import time
 import re
+import os
 
 
 class Email(object):
     def __init__(self):
         self.path = "account.txt"
-        self.matcher_email = re.compile(r'(\s*)(?P<url_name>\S*)(\s*)(?P<url_login>\S*)(\s*)(?P<email>\S*)(\s*)(?P<passwd>\S*)')
+        self.matcher_email = re.compile(r'(\s*)(?P<url_name>\S*)(\s*)(?P<url_login>\S*)(\s*)(?P<email>\S*)(\s*)(?P<passwd>\S*)(\s*)(?P<cookie>.*)')
         self.matcher_cookie = re.compile(r'(\s*)(?P<url_name>\S*)(\s*)(?P<url_login>\S*)(\s*)(?P<email>\S*)(\s*)(?P<cookie>.*)')
         self.url_name = ''
         self.url_login = ''
         self.email = ''
         self.passwd = ''
-        self.cookie = {}
+        self.cookie = ''
 
     def loadFileInfo(self):
         with open(self.path) as file:
@@ -35,11 +36,12 @@ class Email(object):
         self.url_login = ret.get('url_login', 'None')
         self.email = ret.get('email', 'None')
         self.passwd = ret.get('passwd', 'None')
+        self.cookie = ret.get('cookie', 'None')
         self.loginEmail()
 
     def loginEmail(self):
         login = Login()
-        login.setLoginInfo(url_name=self.url_name, url_login=self.url_login, email=self.email, passwd=self.passwd)
+        login.setLoginInfo(url_name=self.url_name, url_login=self.url_login, email=self.email, passwd=self.passwd, cookie=self.cookie)
         login.login()
 
 
@@ -57,14 +59,16 @@ class Login(object):
         self.url_login = kwargs.get('url_login', 'None')
         self.email = kwargs.get('email', 'None')
         self.passwd = kwargs.get('passwd', 'None')
-        #self.cookie = kwargs.get('cookie', 'None')
-        self.cookie = 'cookie_renren_13471275509.txt'
+        if os.path.isfile('cookie_{}_{}.txt'.format(self.url_name, self.email)):
+            self.cookie = "cookie_{}_{}.txt".format(self.url_name, self.email)
+        else:
+            self.cookie = kwargs.get('cookie', 'None')
         self.CodeUrl = 'http://icode.renren.com/getcode.do?t=web_login&rnd=Math.random()'
 
     def login(self):
         print(self.url_name, self.url_login, self.email, self.passwd, self.cookie, self.CodeUrl)
-        if self.cookie == 'None':
-            self.path_cookies = "cookie_{}_{}.txt".format(self.url_name, self.email)
+        self.path_cookies = "cookie_{}_{}.txt".format(self.url_name, self.email)
+        if self.cookie == 'None' or self.cookie == '':
             self.cj = http.cookiejar.LWPCookieJar(self.path_cookies)
             self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cj))
             urllib.request.install_opener(self.opener)
@@ -87,13 +91,26 @@ class Login(object):
             self.operate = self.opener.open(req)
             thePage = self.operate.read()
             self.cj.save(ignore_discard=True, ignore_expires=True)
-        else:
+        elif self.cookie == self.path_cookies:
             self.cj = http.cookiejar.LWPCookieJar()
             self.cj.load(self.cookie, ignore_discard=True, ignore_expires=True)
             self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cj))
             urllib.request.install_opener(self.opener)
             req = urllib.request.Request(self.url_login)
             self.operate = self.opener.open(req)
+            thePage = self.operate.read()
+        else:
+            print(self.url_name)
+            self.cj = http.cookiejar.LWPCookieJar(self.path_cookies)
+            self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.cj))
+            urllib.request.install_opener(self.opener)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.8 Safari/537.36',
+                'cookie': self.cookie
+            }
+            req = urllib.request.Request(self.url_login, headers=headers)
+            self.operate = self.opener.open(req)
+            self.cj.save(ignore_discard=True, ignore_expires=True)
             thePage = self.operate.read()
 
         html = open('./login_{}_{}.html'.format(self.url_name, self.email), 'wb')
